@@ -4,10 +4,8 @@ import com.cobblemon.mod.common.client.gui.battle.BattleGUI;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleActionSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection;
 import com.cobblemon.mod.common.pokemon.Pokemon;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.Window;
 import net.tropimon.calculatortropi.calc.TypeChart;
 import net.tropimon.calculatortropi.cobblemon.TypeMapper;
@@ -20,14 +18,7 @@ public class SwitchTooltip {
     private static final int LARGEUR_BADGE = 24;
     private static final int HAUTEUR_BADGE = 10;
 
-    public static void enregistrer() {
-        HudRenderCallback.EVENT.register(SwitchTooltip::dessiner);
-    }
-
-    private static void dessiner(DrawContext contexte, RenderTickCounter compteur) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (!(client.currentScreen instanceof BattleGUI battleGUI)) return;
-
+    public static void dessiner(DrawContext contexte, MinecraftClient client, BattleGUI battleGUI) {
         BattleActionSelection selection = battleGUI.getCurrentActionSelection();
         if (!(selection instanceof BattleSwitchPokemonSelection switchSelection)) return;
 
