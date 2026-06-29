@@ -6,7 +6,6 @@ import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonS
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.util.Window;
 import net.tropimon.calculatortropi.calc.TypeChart;
 import net.tropimon.calculatortropi.cobblemon.TypeMapper;
 
@@ -20,33 +19,38 @@ public class SwitchTooltip {
     private static final int LARGEUR_PANNEAU = 220;
     private static final int MARGE = 8;
 
+    // Taille réelle d'une case affichée (constantes Cobblemon: SELECT_WIDTH * SCALE)
+    private static final float LARGEUR_CASE = 94f * 0.5f;
+
     public static void dessiner(DrawContext contexte, MinecraftClient client, BattleGUI battleGUI) {
         try {
             BattleActionSelection selection = battleGUI.getCurrentActionSelection();
             if (!(selection instanceof BattleSwitchPokemonSelection switchSelection)) return;
 
+            List<BattleSwitchPokemonSelection.SwitchTile> tuiles = switchSelection.getTiles();
+            if (tuiles.isEmpty()) return;
+
+            // On calcule la position réelle du groupe de cases visibles
+            // (et non celle du conteneur invisible, qui couvre tout l'écran),
+            // pour ancrer notre panneau juste à droite, une fois pour toutes.
+            float xDroite = Float.MIN_VALUE;
+            float yHaut = Float.MAX_VALUE;
+            for (BattleSwitchPokemonSelection.SwitchTile tuile : tuiles) {
+                xDroite = Math.max(xDroite, tuile.getX() + LARGEUR_CASE);
+                yHaut = Math.min(yHaut, tuile.getY());
+            }
+
+            int xPanneau = (int) xDroite + MARGE;
+            int yPanneau = (int) yHaut;
+
             OpponentContext ctx = OpponentContext.detecter();
 
-            int xPanneau = switchSelection.getX() + switchSelection.getWidth() + MARGE;
-            int yPanneau = switchSelection.getY();
-
-            // --- BANNIERE DEBUG TEMPORAIRE (à retirer une fois le souci identifié) ---
-            String debug = String.format(
-                    "DEBUG widget x=%d y=%d w=%d h=%d | ctx=%s spread=%s",
-                    switchSelection.getX(), switchSelection.getY(),
-                    switchSelection.getWidth(), switchSelection.getHeight(),
-                    ctx != null, ctx != null && ctx.spread != null
-            );
-            contexte.fill(8, 300, 8 + client.textRenderer.getWidth(debug) + 8, 315, 0xEEFFAA00);
-            contexte.drawText(client.textRenderer, debug, 12, 303, 0xFF000000, false);
-            // --- FIN BANNIERE DEBUG ---
+            double sourisX = client.mouse.getX() * client.getWindow().getScaledWidth() / client.getWindow().getWidth();
+            double sourisY = client.mouse.getY() * client.getWindow().getScaledHeight() / client.getWindow().getHeight();
 
             Pokemon survole = null;
-            for (BattleSwitchPokemonSelection.SwitchTile tuile : switchSelection.getTiles()) {
-                if (tuile.isHovered(
-                        client.mouse.getX() * client.getWindow().getScaledWidth() / client.getWindow().getWidth(),
-                        client.mouse.getY() * client.getWindow().getScaledHeight() / client.getWindow().getHeight()
-                )) {
+            for (BattleSwitchPokemonSelection.SwitchTile tuile : tuiles) {
+                if (tuile.isHovered(sourisX, sourisY)) {
                     survole = tuile.getPokemon();
                     break;
                 }
