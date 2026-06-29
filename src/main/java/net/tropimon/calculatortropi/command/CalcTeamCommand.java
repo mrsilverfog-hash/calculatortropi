@@ -9,7 +9,6 @@ import com.mojang.brigadier.context.CommandContext;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.tropimon.calculatortropi.calc.TypeChart;
 import net.tropimon.calculatortropi.cobblemon.TypeMapper;
@@ -42,14 +41,21 @@ public class CalcTeamCommand {
             ItemStack objet = pokemon.heldItem();
             String nomObjet = objet.isEmpty()
                     ? "Aucun"
-                    : Registries.ITEM.getId(objet.getItem()).getPath().replace("_", " ");
+                    : objet.getName().getString();
+
+            // Cobblemon stocke nature/talent comme des CLES de traduction
+            // (ex: "cobblemon.nature.adamant"), pas comme du texte déjà résolu.
+            // On les fait résoudre par Minecraft, qui utilise la langue du
+            // client (fr_fr chez toi) -> ça sort directement en français.
+            String nomNature = Text.translatable(pokemon.getNature().getDisplayName()).getString();
+            String nomTalent = Text.translatable(pokemon.getAbility().getDisplayName()).getString();
 
             contexte.getSource().sendFeedback(Text.literal(String.format(
                     "%s (Nv.%d) [%s] PV:%d Atk:%d Def:%d SpA:%d SpD:%d Spe:%d | Objet: %s | Nature: %s | Talent: %s",
                     espece.getName(), pokemon.getLevel(), typesTexte,
                     pokemon.getMaxHealth(), pokemon.getAttack(), pokemon.getDefence(),
                     pokemon.getSpecialAttack(), pokemon.getSpecialDefence(), pokemon.getSpeed(),
-                    nomObjet, pokemon.getNature().getDisplayName(), pokemon.getAbility().getName()
+                    nomObjet, nomNature, nomTalent
             )));
         }
 
