@@ -34,12 +34,22 @@ java {
 
 tasks.register('inspectCobblemon') {
     doLast {
-        def jarFile = configurations.compileClasspath.files.find { it.name.contains('cobblemon') }
-        if (jarFile == null) {
-            println "AUCUN JAR COBBLEMON TROUVE DANS LE CLASSPATH"
+        println "===== CLASSPATH DE COMPILATION (groupe:nom:version -> fichier) ====="
+        configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.each { art ->
+            println "${art.moduleVersion.id.group}:${art.moduleVersion.id.name}:${art.moduleVersion.id.version} -> ${art.file.name}"
+        }
+
+        def cobblemonArtifact = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
+            it.moduleVersion.id.group == 'com.cobblemon'
+        }
+
+        if (cobblemonArtifact == null) {
+            println "AUCUN ARTEFACT com.cobblemon TROUVE - voir la liste ci-dessus"
             return
         }
-        println "JAR TROUVE: ${jarFile.name}"
+
+        def jarFile = cobblemonArtifact.file
+        println "JAR COBBLEMON TROUVE: ${jarFile}"
 
         def tempDir = new File(buildDir, 'cobblemon-inspect')
         tempDir.deleteDir()
@@ -60,7 +70,7 @@ tasks.register('inspectCobblemon') {
                     commandLine 'javap', '-p', fichierClasse.absolutePath
                 }
             } else {
-                println "CLASSE NON TROUVEE: ${nomClasse}"
+                println "CLASSE NON TROUVEE DANS LE JAR: ${nomClasse}"
             }
         }
     }
