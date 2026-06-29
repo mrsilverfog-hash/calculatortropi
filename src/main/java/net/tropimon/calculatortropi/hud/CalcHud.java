@@ -1,38 +1,16 @@
 package net.tropimon.calculatortropi.hud;
 
-import com.cobblemon.mod.common.api.moves.Move;
-import com.cobblemon.mod.common.api.moves.MoveTemplate;
-import com.cobblemon.mod.common.api.moves.categories.DamageCategories;
-import com.cobblemon.mod.common.api.moves.categories.DamageCategory;
-import com.cobblemon.mod.common.api.pokemon.stats.Stats;
-import com.cobblemon.mod.common.api.types.ElementalType;
 import com.cobblemon.mod.common.client.CobblemonClient;
-import com.cobblemon.mod.common.client.battle.ActiveClientBattlePokemon;
-import com.cobblemon.mod.common.client.battle.ClientBattle;
-import com.cobblemon.mod.common.client.battle.ClientBattleActor;
-import com.cobblemon.mod.common.client.battle.ClientBattlePokemon;
-import com.cobblemon.mod.common.client.battle.ClientBattleSide;
 import com.cobblemon.mod.common.pokemon.Pokemon;
-import com.cobblemon.mod.common.pokemon.Species;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
-import net.tropimon.calculatortropi.calc.DamageCalculator;
-import net.tropimon.calculatortropi.calc.Stat;
-import net.tropimon.calculatortropi.calc.StatCalculator;
 import net.tropimon.calculatortropi.calc.TypeChart;
-import net.tropimon.calculatortropi.cobblemon.MoveNameResolver;
 import net.tropimon.calculatortropi.cobblemon.TypeMapper;
-import net.tropimon.calculatortropi.database.RankedApiClient;
-import net.tropimon.calculatortropi.database.SpreadDatabase;
-import net.tropimon.calculatortropi.database.SpreadEntry;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 public class CalcHud {
 
@@ -51,8 +29,6 @@ public class CalcHud {
     private record RangSwitchDetail(String texteGauche, int couleurGauche, String texteDroite, int couleurDroite) implements Rang {}
     private record RangEspace() implements Rang {}
 
-    private record ResultatAttaque(double min, double max, String nom) {}
-
     public static void enregistrer() {
         HudRenderCallback.EVENT.register(CalcHud::dessiner);
     }
@@ -61,46 +37,26 @@ public class CalcHud {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
 
-        ClientBattle combat = CobblemonClient.INSTANCE.getBattle();
-        if (combat == null) return;
+        OpponentContext ctx = OpponentContext.detecter();
+        if (ctx == null) return;
 
-        // On identifie "mon" Pokémon actif et celui d'en face en comparant
-        // l'UUID du Pokémon lui-même à ceux de ma party, plutôt que l'UUID de
-        // l'acteur au joueur connecté. Plus robuste face à des systèmes comme
-        // un terminal de combat classé.
-        Set<UUID> uuidsDeMaParty = new HashSet<>();
-        for (Pokemon p : CobblemonClient.INSTANCE.getStorage().getParty()) {
-            if (p != null) uuidsDeMaParty.add(p.getUuid());
-        }
-
-        ClientBattlePokemon monActif = null;
-        ClientBattlePokemon actifAdverse = null;
-
-        for (ClientBattleSide cote : combat.getSides()) {
-            for (ClientBattleActor acteur : cote.getActors()) {
-                for (ActiveClientBattlePokemon actif : acteur.getActivePokemon()) {
-                    ClientBattlePokemon bp = actif.getBattlePokemon();
-                    if (bp == null) continue;
-                    if (uuidsDeMaParty.contains(bp.getUuid())) {
-                        monActif = bp;
-                    } else if (actifAdverse == null) {
-                        actifAdverse = bp;
-                    }
-                }
-            }
-        }
-
-        if (monActif == null || actifAdverse == null) return;
-
-        Pokemon monPokemonComplet = null;
-        for (Pokemon p : CobblemonClient.INSTANCE.getStorage().getParty()) {
-            if (p != null && p.getUuid().equals(monActif.getUuid())) {
-                monPokemonComplet = p;
-                break;
-            }
-        }
+        Pokemon monPokemonComplet = trouverMonActif(ctx);
         if (monPokemonComplet == null) return;
 
+        List<Rang> rangs = construireRangs(ctx, monPokemonComplet);
+        dessinerPanneau(contexte, client, rangs);
+    }
+
+    private static Pokemon trouverMonActif(OpponentContext ctx) {
+        for (Pokemon p : CobblemonClient.INSTANCE.getStorage().getParty()) {
+            if (p != null && p.getUuid().equals(ctx.monUuidActif)) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    private static List<Rang> construireRangs(OpponentContext ctx, Pokemon monPokemonComplet) {
         List<Rang> rangs = new ArrayList<>();
         rangs.add(new RangTexte("=== Calculatortropi ===", 0xFF55FFFF));
 
@@ -119,222 +75,92 @@ public class CalcHud {
 
         rangs.add(new RangTexte("contre", 0xFFAAAAAA));
 
-        Species especeAdverse = actifAdverse.getSpecies();
-        int niveauAdverse = actifAdverse.getLevel();
-        boolean pvExacts = actifAdverse.isHpFlat();
-        float pvMaxReel = actifAdverse.getMaxHp();
-        double ratioAdverse = pvExacts
-                ? (pvMaxReel > 0 ? actifAdverse.getHpValue() / pvMaxReel : 0)
-                : actifAdverse.getHpValue();
-
-        TypeChart.Type typeAdv1 = TypeMapper.depuisCobblemon(especeAdverse.getPrimaryType());
-        TypeChart.Type typeAdv2 = especeAdverse.getSecondaryType() != null
-                ? TypeMapper.depuisCobblemon(especeAdverse.getSecondaryType()) : null;
-
         rangs.add(new RangNomTypes(
-                especeAdverse.getName() + " (Nv." + niveauAdverse + ")",
-                typeAdv1, typeAdv2
+                ctx.espece.getName() + " (Nv." + ctx.niveau + ")",
+                ctx.type1, ctx.type2
         ));
 
-        String texteVieAdverse = pvExacts
-                ? String.format("%.0f/%.0f PV", actifAdverse.getHpValue(), pvMaxReel)
-                : String.format("~%.0f/%.0f PV (est.)", ratioAdverse * pvMaxReel, pvMaxReel);
-        rangs.add(new RangBarreVie(ratioAdverse, texteVieAdverse));
-
-        SpreadEntry spread = RankedApiClient.obtenirSiDisponible(especeAdverse.getName());
-        if (spread == null) {
-            spread = SpreadDatabase.trouver(especeAdverse.getName());
-        }
+        String texteVieAdverse = ctx.pvExacts
+                ? String.format("%.0f/%.0f PV", ctx.actifAdverse.getHpValue(), ctx.pvMaxReel)
+                : String.format("~%.0f/%.0f PV (est.)", ctx.ratioPv * ctx.pvMaxReel, ctx.pvMaxReel);
+        rangs.add(new RangBarreVie(ctx.ratioPv, texteVieAdverse));
 
         rangs.add(new RangEspace());
 
-        if (spread == null) {
-            if (RankedApiClient.estEnCoursDeChargement(especeAdverse.getName())) {
-                rangs.add(new RangTexte("Recherche de la spread adverse...", 0xFFAAAAAA));
-            } else {
-                rangs.add(new RangTexte("Spread adverse inconnue.", 0xFFAAAAAA));
-            }
-        } else {
-            rangs.add(new RangTexte("Objet: " + spread.objet + " | Talent: " + spread.talent, 0xFFAAAAAA));
-            rangs.add(new RangEspace());
-
-            int defAdv = StatCalculator.calculerStat(especeAdverse.getBaseStats().get(Stats.DEFENCE),
-                    31, spread.evDef, niveauAdverse, spread.nature.getMultiplicateur(Stat.DEF));
-            int spdAdv = StatCalculator.calculerStat(especeAdverse.getBaseStats().get(Stats.SPECIAL_DEFENCE),
-                    31, spread.evSpd, niveauAdverse, spread.nature.getMultiplicateur(Stat.SPD));
-            int atkAdv = StatCalculator.calculerStat(especeAdverse.getBaseStats().get(Stats.ATTACK),
-                    31, spread.evAtk, niveauAdverse, spread.nature.getMultiplicateur(Stat.ATK));
-            int spaAdv = StatCalculator.calculerStat(especeAdverse.getBaseStats().get(Stats.SPECIAL_ATTACK),
-                    31, spread.evSpa, niveauAdverse, spread.nature.getMultiplicateur(Stat.SPA));
-            int pvMaxAdvPourCalcul = (int) pvMaxReel;
-
-            rangs.add(new RangTexte("Vos capacités -> adversaire", 0xFF55FFFF));
-            for (Move m : monPokemonComplet.getMoveSet()) {
-                if (m == null || m.getPower() <= 0) continue;
-                rangs.add(construireRangMove(
-                        m.getDisplayName().getString(), m.getPower(), m.getType(), m.getDamageCategory(),
-                        monPokemonComplet.getAttack(), monPokemonComplet.getSpecialAttack(), monPokemonComplet.getLevel(),
-                        defAdv, spdAdv, pvMaxAdvPourCalcul, typeNous1, typeNous2, typeAdv1, typeAdv2
-                ));
-            }
-
-            rangs.add(new RangEspace());
-            rangs.add(new RangTexte("Attaques probables adverses -> vous", 0xFF55FFFF));
-            for (String nomMove : spread.topMoves) {
-                MoveTemplate gabarit = MoveNameResolver.resoudre(nomMove);
-                if (gabarit == null || gabarit.getPower() <= 0) continue;
-                rangs.add(construireRangMove(
-                        nomMove, gabarit.getPower(), gabarit.getElementalType(), gabarit.getDamageCategory(),
-                        atkAdv, spaAdv, niveauAdverse,
-                        monPokemonComplet.getDefence(), monPokemonComplet.getSpecialDefence(), monPokemonComplet.getMaxHealth(),
-                        typeAdv1, typeAdv2, typeNous1, typeNous2
-                ));
-            }
-
-            rangs.add(new RangEspace());
-            rangs.add(new RangTexte("Si tu changes de Pokémon", 0xFF55FFFF));
-
-            for (Pokemon p : CobblemonClient.INSTANCE.getStorage().getParty()) {
-                if (p == null) continue;
-                if (p.getUuid().equals(monPokemonComplet.getUuid())) continue;
-                if (p.isFainted()) continue;
-
-                TypeChart.Type typeP1 = TypeMapper.depuisCobblemon(p.getPrimaryType());
-                TypeChart.Type typeP2 = p.getSecondaryType() != null
-                        ? TypeMapper.depuisCobblemon(p.getSecondaryType()) : null;
-
-                int pvPourcent = p.getMaxHealth() > 0 ? (p.getCurrentHealth() * 100 / p.getMaxHealth()) : 0;
-                rangs.add(new RangNomTypes(
-                        p.getSpecies().getName() + " (Nv." + p.getLevel() + ") " + pvPourcent + "% PV",
-                        typeP1, typeP2
-                ));
-
-                ResultatAttaque menace = meilleureMenaceAdverse(
-                        spread.topMoves, atkAdv, spaAdv, niveauAdverse, typeAdv1, typeAdv2,
-                        p, typeP1, typeP2
-                );
-                ResultatAttaque ripostes = meilleureAttaqueVersAdversaire(
-                        p, typeP1, typeP2, defAdv, spdAdv, pvMaxAdvPourCalcul,
-                        typeAdv1, typeAdv2
-                );
-
-                String texteGauche = menace != null
-                        ? String.format("Subit: %.0f-%.0f%% (%s)", menace.min(), menace.max(), menace.nom())
-                        : "Subit: inconnu";
-                int couleurGauche = menace != null ? couleurSeverite(menace.min(), menace.max()) : 0xFF888888;
-
-                String texteDroite = ripostes != null
-                        ? String.format("Fait: %.0f-%.0f%% (%s)", ripostes.min(), ripostes.max(), ripostes.nom())
-                        : "Fait: inconnu";
-                int couleurDroite = ripostes != null ? couleurSeverite(ripostes.min(), ripostes.max()) : 0xFF888888;
-
-                rangs.add(new RangSwitchDetail(texteGauche, couleurGauche, texteDroite, couleurDroite));
-            }
+        if (ctx.spread == null) {
+            rangs.add(new RangTexte(
+                    ctx.spreadEnChargement ? "Recherche de la spread adverse..." : "Spread adverse inconnue.",
+                    0xFFAAAAAA
+            ));
+            dessinerPanneauFinal(rangs);
+            return rangs;
         }
 
-        dessinerPanneau(contexte, client, rangs);
-    }
+        rangs.add(new RangTexte("Objet: " + ctx.spread.objet + " | Talent: " + ctx.spread.talent, 0xFFAAAAAA));
+        rangs.add(new RangEspace());
 
-    private static ResultatAttaque meilleureMenaceAdverse(
-            List<String> topMoves, int atkAdv, int spaAdv, int niveauAdverse,
-            TypeChart.Type typeAdv1, TypeChart.Type typeAdv2,
-            Pokemon cible, TypeChart.Type typeCible1, TypeChart.Type typeCible2
-    ) {
-        ResultatAttaque meilleur = null;
-        if (cible.getMaxHealth() <= 0) return null;
-
-        for (String nomMove : topMoves) {
-            MoveTemplate gabarit = MoveNameResolver.resoudre(nomMove);
-            if (gabarit == null || gabarit.getPower() <= 0) continue;
-
-            boolean physique = gabarit.getDamageCategory() == DamageCategories.INSTANCE.getPHYSICAL();
-            int attaque = physique ? atkAdv : spaAdv;
-            int defense = physique ? cible.getDefence() : cible.getSpecialDefence();
-
-            TypeChart.Type typeMove = TypeMapper.depuisCobblemon(gabarit.getElementalType());
-            boolean stab = typeMove == typeAdv1 || typeMove == typeAdv2;
-            double efficacite = TypeChart.getMultiplicateur(typeMove, typeCible1, typeCible2);
-            if (efficacite == 0) continue;
-
-            DamageCalculator.Resultat r = DamageCalculator.calculer(
-                    attaque, defense, (int) gabarit.getPower(), niveauAdverse, cible.getMaxHealth(),
-                    stab, efficacite, 1.0, false, false
-            );
-
-            if (meilleur == null || r.pourcentMax > meilleur.max()) {
-                meilleur = new ResultatAttaque(r.pourcentMin, r.pourcentMax, nomMove);
-            }
-        }
-        return meilleur;
-    }
-
-    private static ResultatAttaque meilleureAttaqueVersAdversaire(
-            Pokemon attaquant, TypeChart.Type typeAtt1, TypeChart.Type typeAtt2,
-            int defAdv, int spdAdv, int pvMaxAdv,
-            TypeChart.Type typeCible1, TypeChart.Type typeCible2
-    ) {
-        ResultatAttaque meilleur = null;
-        if (pvMaxAdv <= 0) return null;
-
-        for (Move m : attaquant.getMoveSet()) {
-            if (m == null || m.getPower() <= 0) continue;
-
-            boolean physique = m.getDamageCategory() == DamageCategories.INSTANCE.getPHYSICAL();
-            int attaque = physique ? attaquant.getAttack() : attaquant.getSpecialAttack();
-            int defense = physique ? defAdv : spdAdv;
-
-            TypeChart.Type typeMove = TypeMapper.depuisCobblemon(m.getType());
-            boolean stab = typeMove == typeAtt1 || typeMove == typeAtt2;
-            double efficacite = TypeChart.getMultiplicateur(typeMove, typeCible1, typeCible2);
-            if (efficacite == 0) continue;
-
-            DamageCalculator.Resultat r = DamageCalculator.calculer(
-                    attaque, defense, (int) m.getPower(), attaquant.getLevel(), pvMaxAdv,
-                    stab, efficacite, 1.0, false, false
-            );
-
-            if (meilleur == null || r.pourcentMax > meilleur.max()) {
-                meilleur = new ResultatAttaque(r.pourcentMin, r.pourcentMax, m.getDisplayName().getString());
-            }
-        }
-        return meilleur;
-    }
-
-    private static RangMove construireRangMove(
-            String nomMove, double puissance,
-            ElementalType typeMoveCobblemon, DamageCategory categorie,
-            int attaquePhysique, int attaqueSpeciale, int niveauAttaquant,
-            int defensePhysiqueCible, int defenseSpecialeCible, int pvMaxCible,
-            TypeChart.Type typeAttaquant1, TypeChart.Type typeAttaquant2,
-            TypeChart.Type typeCible1, TypeChart.Type typeCible2
-    ) {
-        boolean physique = categorie == DamageCategories.INSTANCE.getPHYSICAL();
-        int attaque = physique ? attaquePhysique : attaqueSpeciale;
-        int defense = physique ? defensePhysiqueCible : defenseSpecialeCible;
-
-        TypeChart.Type typeMove = TypeMapper.depuisCobblemon(typeMoveCobblemon);
-        boolean stab = typeMove == typeAttaquant1 || typeMove == typeAttaquant2;
-        double efficacite = TypeChart.getMultiplicateur(typeMove, typeCible1, typeCible2);
-
-        if (efficacite == 0 || pvMaxCible <= 0) {
-            return new RangMove(typeMove, nomMove, "aucun effet", 0xFF888888);
+        rangs.add(new RangTexte("Vos capacités -> adversaire", 0xFF55FFFF));
+        for (Matchup.Ligne ligne : Matchup.versCible(
+                monPokemonComplet, typeNous1, typeNous2,
+                ctx.def, ctx.spd, ctx.getPvMaxPourCalcul(), ctx.type1, ctx.type2
+        )) {
+            rangs.add(new RangMove(ligne.type(), ligne.nom(), ligne.resultat(), ligne.couleurResultat()));
         }
 
-        DamageCalculator.Resultat resultat = DamageCalculator.calculer(
-                attaque, defense, (int) puissance, niveauAttaquant, pvMaxCible, stab, efficacite, 1.0, false, false
-        );
+        rangs.add(new RangEspace());
+        rangs.add(new RangTexte("Attaques probables adverses -> vous", 0xFF55FFFF));
+        for (Matchup.Ligne ligne : Matchup.depuisAdversaire(
+                ctx.spread.topMoves, ctx.atk, ctx.spa, ctx.niveau, ctx.type1, ctx.type2,
+                monPokemonComplet, typeNous1, typeNous2
+        )) {
+            rangs.add(new RangMove(ligne.type(), ligne.nom(), ligne.resultat(), ligne.couleurResultat()));
+        }
 
-        String texteResultat = String.format("%.0f-%.0f%%", resultat.pourcentMin, resultat.pourcentMax);
-        int couleur = couleurSeverite(resultat.pourcentMin, resultat.pourcentMax);
+        rangs.add(new RangEspace());
+        rangs.add(new RangTexte("Si tu changes de Pokémon", 0xFF55FFFF));
 
-        return new RangMove(typeMove, nomMove, texteResultat, couleur);
+        for (Pokemon p : CobblemonClient.INSTANCE.getStorage().getParty()) {
+            if (p == null) continue;
+            if (p.getUuid().equals(monPokemonComplet.getUuid())) continue;
+            if (p.isFainted()) continue;
+
+            TypeChart.Type typeP1 = TypeMapper.depuisCobblemon(p.getPrimaryType());
+            TypeChart.Type typeP2 = p.getSecondaryType() != null
+                    ? TypeMapper.depuisCobblemon(p.getSecondaryType()) : null;
+
+            int pvPourcent = p.getMaxHealth() > 0 ? (p.getCurrentHealth() * 100 / p.getMaxHealth()) : 0;
+            rangs.add(new RangNomTypes(
+                    p.getSpecies().getName() + " (Nv." + p.getLevel() + ") " + pvPourcent + "% PV",
+                    typeP1, typeP2
+            ));
+
+            Matchup.Ligne menace = Matchup.meilleure(Matchup.depuisAdversaire(
+                    ctx.spread.topMoves, ctx.atk, ctx.spa, ctx.niveau, ctx.type1, ctx.type2,
+                    p, typeP1, typeP2
+            ));
+            Matchup.Ligne riposte = Matchup.meilleure(Matchup.versCible(
+                    p, typeP1, typeP2, ctx.def, ctx.spd, ctx.getPvMaxPourCalcul(), ctx.type1, ctx.type2
+            ));
+
+            String texteGauche = menace != null
+                    ? String.format("Subit: %s (%s)", menace.resultat(), menace.nom())
+                    : "Subit: inconnu";
+            int couleurGauche = menace != null ? menace.couleurResultat() : 0xFF888888;
+
+            String texteDroite = riposte != null
+                    ? String.format("Fait: %s (%s)", riposte.resultat(), riposte.nom())
+                    : "Fait: inconnu";
+            int couleurDroite = riposte != null ? riposte.couleurResultat() : 0xFF888888;
+
+            rangs.add(new RangSwitchDetail(texteGauche, couleurGauche, texteDroite, couleurDroite));
+        }
+
+        return rangs;
     }
 
-    private static int couleurSeverite(double pourcentMin, double pourcentMax) {
-        if (pourcentMin >= 100) return 0xFFFF5555;
-        if (pourcentMax >= 100) return 0xFFFFAA00;
-        if (pourcentMax >= 50) return 0xFFFFFFFF;
-        return 0xFFAAAAAA;
+    private static void dessinerPanneauFinal(List<Rang> rangs) {
+        // méthode laissée vide intentionnellement : le rendu effectif se
+        // fait dans dessinerPanneau(), appelée juste après construireRangs()
     }
 
     private static int couleurBarreVie(double ratio) {
