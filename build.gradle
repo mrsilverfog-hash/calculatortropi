@@ -34,59 +34,52 @@ java {
 
 tasks.register('inspectCobblemon') {
     doLast {
-        def cobblemonArtifact = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
-            it.moduleVersion.id.group.contains('cobblemon') || it.file.name.startsWith('fabric-1.7.2')
-        }
-
-        if (cobblemonArtifact == null) {
-            println "AUCUN ARTEFACT COBBLEMON TROUVE"
-            return
-        }
-
-        def jarFile = cobblemonArtifact.file
-        println "JAR COBBLEMON TROUVE: ${jarFile}"
-
         def tempDir = new File(buildDir, 'cobblemon-inspect')
         tempDir.deleteDir()
         tempDir.mkdirs()
 
-        copy {
-            from zipTree(jarFile)
-            into tempDir
-            include 'com/cobblemon/mod/common/pokemon/Pokemon.class'
-            include 'com/cobblemon/mod/common/api/moves/**'
-            include 'com/cobblemon/mod/common/moves/**'
-            include 'com/cobblemon/mod/common/api/pokemon/PokemonProperties.class'
-        }
+        def artefacts = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts
 
-        println "==================== Pokemon.class (complet) ===================="
-        def fichierPokemon = new File(tempDir, 'com/cobblemon/mod/common/pokemon/Pokemon.class')
-        if (fichierPokemon.exists()) {
-            exec { commandLine 'javap', '-p', fichierPokemon.absolutePath }
-        } else {
-            println "NON TROUVE"
-        }
-
-        ['com/cobblemon/mod/common/api/moves', 'com/cobblemon/mod/common/moves'].each { chemin ->
-            def dossier = new File(tempDir, chemin)
-            if (dossier.exists()) {
-                dossier.eachFileRecurse { fichier ->
-                    if (fichier.name.endsWith('.class') && !fichier.name.contains('$')) {
-                        println "==================== ${fichier.name} ===================="
-                        exec { commandLine 'javap', '-p', fichier.absolutePath }
-                    }
-                }
+        def afficherClasse = { File jarFile, String cheminClasse, String etiquette ->
+            def dossierExtrait = new File(tempDir, etiquette)
+            dossierExtrait.mkdirs()
+            copy {
+                from zipTree(jarFile)
+                into dossierExtrait
+                include cheminClasse
+            }
+            def fichier = new File(dossierExtrait, cheminClasse)
+            println "==================== ${etiquette} : ${cheminClasse} ===================="
+            if (fichier.exists()) {
+                exec { commandLine 'javap', '-p', fichier.absolutePath }
             } else {
-                println "DOSSIER NON TROUVE: ${chemin}"
+                println "NON TROUVE"
             }
         }
 
-        println "==================== PokemonProperties.class ===================="
-        def fichierProps = new File(tempDir, 'com/cobblemon/mod/common/api/pokemon/PokemonProperties.class')
-        if (fichierProps.exists()) {
-            exec { commandLine 'javap', '-p', fichierProps.absolutePath }
+        // --- Jar Minecraft (Screen, DrawContext, TextRenderer, MinecraftClient) ---
+        def jarMinecraft = artefacts.find { it.file.name.contains('minecraft-merged') }?.file
+        if (jarMinecraft != null) {
+            println "JAR MINECRAFT: ${jarMinecraft.name}"
+            afficherClasse(jarMinecraft, 'net/minecraft/client/gui/screen/Screen.class', 'minecraft')
+            afficherClasse(jarMinecraft, 'net/minecraft/client/gui/DrawContext.class', 'minecraft')
+            afficherClasse(jarMinecraft, 'net/minecraft/client/font/TextRenderer.class', 'minecraft')
         } else {
-            println "NON TROUVE"
+            println "JAR MINECRAFT NON TROUVE"
+        }
+
+        // --- Jar Fabric API rendu (HudRenderCallback - nom de package inconnu, on cherche par mot-clé) ---
+        def jarRendu = artefacts.find { it.file.name.contains('fabric-rendering-v1') }?.file
+        if (jarRendu != null) {
+            println "JAR FABRIC RENDERING: ${jarRendu.name}"
+            zipTree(jarRendu).matching { include '**/*Hud*.class' }.files.each { fichier ->
+                if (!fichier.name.contains('$')) {
+                    println "==================== fabric-rendering : ${fichier.name} ===================="
+                    exec { commandLine 'javap', '-p', fichier.absolutePath }
+                }
+            }
+        } else {
+            println "JAR FABRIC RENDERING NON TROUVE"
         }
     }
 }
