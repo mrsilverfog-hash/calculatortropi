@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "calculatortropi",
+  "version": "${version}",
+  "name": "Calculatortropi",
+  "description": "Calculateur de dégâts Cobblemon pour Tropimon",
+  "authors": ["Tropimon"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "net.tropimon.calculatortropi.CalculatortropiClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.5",
+    "minecraft": "1.21.1",
+    "fabric-api": "*",
+    "cobblemon": "*"
+  }
+}
