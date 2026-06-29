@@ -15,7 +15,7 @@ dependencies {
     mappings 'net.fabricmc:yarn:1.21.1+build.3:v2'
     modImplementation 'net.fabricmc:fabric-loader:0.16.5'
     modImplementation 'net.fabricmc.fabric-api:fabric-api:0.102.0+1.21.1'
-    modCompileOnly('com.cobblemon:fabric:1.6.1+1.21.1') { transitive = true }
+    modCompileOnly('com.cobblemon:fabric:1.7.2+1.21.1') { transitive = true }
     compileOnly 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
 }
 processResources {
@@ -30,4 +30,38 @@ tasks.withType(JavaCompile).configureEach {
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.register('inspectCobblemon') {
+    doLast {
+        def jarFile = configurations.compileClasspath.files.find { it.name.contains('cobblemon') }
+        if (jarFile == null) {
+            println "AUCUN JAR COBBLEMON TROUVE DANS LE CLASSPATH"
+            return
+        }
+        println "JAR TROUVE: ${jarFile.name}"
+
+        def tempDir = new File(buildDir, 'cobblemon-inspect')
+        tempDir.deleteDir()
+        tempDir.mkdirs()
+
+        copy {
+            from zipTree(jarFile)
+            into tempDir
+            include 'com/cobblemon/mod/common/client/storage/ClientStorageManager.class'
+            include 'com/cobblemon/mod/common/client/storage/ClientParty.class'
+        }
+
+        ['ClientStorageManager', 'ClientParty'].each { nomClasse ->
+            def fichierClasse = new File(tempDir, "com/cobblemon/mod/common/client/storage/${nomClasse}.class")
+            if (fichierClasse.exists()) {
+                println "==================== ${nomClasse} ===================="
+                exec {
+                    commandLine 'javap', '-p', fichierClasse.absolutePath
+                }
+            } else {
+                println "CLASSE NON TROUVEE: ${nomClasse}"
+            }
+        }
+    }
 }
