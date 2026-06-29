@@ -17,7 +17,7 @@ public class SwitchTooltip {
     private static final int LARGEUR_BADGE = 24;
     private static final int HAUTEUR_BADGE = 10;
     private static final int LARGEUR_PANNEAU = 220;
-    private static final int MARGE = 40;
+    private static final int MARGE = 50;
 
     // Taille réelle d'une case affichée (constantes Cobblemon: SELECT_WIDTH * SCALE)
     private static final float LARGEUR_CASE = 94f * 0.5f;
@@ -56,14 +56,9 @@ public class SwitchTooltip {
                 }
             }
 
-            if (ctx == null || ctx.spread == null) {
-                dessinerPlaceholder(contexte, client, xPanneau, yPanneau, "Pas de spread adverse disponible.");
-                return;
-            }
+            if (ctx == null || ctx.spread == null) return;
 
-            if (survole == null) {
-                dessinerPlaceholder(contexte, client, xPanneau, yPanneau, "Survole un Pokémon...");
-            } else {
+            if (survole != null) {
                 dessinerMatchup(contexte, client, survole, ctx, xPanneau, yPanneau);
             }
 
@@ -72,12 +67,6 @@ public class SwitchTooltip {
             contexte.fill(8, 320, 8 + client.textRenderer.getWidth(erreur) + 8, 335, 0xEEFF0000);
             contexte.drawText(client.textRenderer, erreur, 12, 323, 0xFFFFFFFF, false);
         }
-    }
-
-    private static void dessinerPlaceholder(DrawContext contexte, MinecraftClient client, int x, int y, String texte) {
-        int largeur = Math.max(LARGEUR_PANNEAU, client.textRenderer.getWidth(texte) + 12);
-        contexte.fill(x, y, x + largeur, y + 19, 0xEE000000);
-        contexte.drawTextWithShadow(client.textRenderer, texte, x + 6, y + 6, 0xFFAAAAAA);
     }
 
     private static void dessinerMatchup(
