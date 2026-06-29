@@ -1,6 +1,7 @@
 package net.tropimon.calculatortropi.hud;
 
 import com.cobblemon.mod.common.client.CobblemonClient;
+import com.cobblemon.mod.common.client.gui.battle.BattleGUI;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
@@ -26,15 +27,22 @@ public class CalcHud {
     private record RangNomTypes(String nom, TypeChart.Type type1, TypeChart.Type type2) implements Rang {}
     private record RangBarreVie(double ratio, String texteDroite) implements Rang {}
     private record RangMove(TypeChart.Type type, String nom, String resultat, int couleurResultat) implements Rang {}
-    private record RangSwitchDetail(String texteGauche, int couleurGauche, String texteDroite, int couleurDroite) implements Rang {}
     private record RangEspace() implements Rang {}
 
     public static void enregistrer() {
-        HudRenderCallback.EVENT.register(CalcHud::dessiner);
+        HudRenderCallback.EVENT.register(CalcHud::dessinerViaHud);
     }
 
-    private static void dessiner(DrawContext contexte, RenderTickCounter compteur) {
+    private static void dessinerViaHud(DrawContext contexte, RenderTickCounter compteur) {
         MinecraftClient client = MinecraftClient.getInstance();
+        // Quand l'écran de combat (menu Combat/Equipe) est ouvert, c'est
+        // BattleScreenOverlay qui dessine le panneau APRES cet écran, pour
+        // ne pas être recouvert par ses propres éléments (cases d'équipe...).
+        if (client.currentScreen instanceof BattleGUI) return;
+        dessiner(contexte, client);
+    }
+
+    public static void dessiner(DrawContext contexte, MinecraftClient client) {
         if (client.player == null) return;
 
         OpponentContext ctx = OpponentContext.detecter();
@@ -92,7 +100,6 @@ public class CalcHud {
                     ctx.spreadEnChargement ? "Recherche de la spread adverse..." : "Spread adverse inconnue.",
                     0xFFAAAAAA
             ));
-            dessinerPanneauFinal(rangs);
             return rangs;
         }
 
@@ -116,51 +123,7 @@ public class CalcHud {
             rangs.add(new RangMove(ligne.type(), ligne.nom(), ligne.resultat(), ligne.couleurResultat()));
         }
 
-        rangs.add(new RangEspace());
-        rangs.add(new RangTexte("Si tu changes de Pokémon", 0xFF55FFFF));
-
-        for (Pokemon p : CobblemonClient.INSTANCE.getStorage().getParty()) {
-            if (p == null) continue;
-            if (p.getUuid().equals(monPokemonComplet.getUuid())) continue;
-            if (p.isFainted()) continue;
-
-            TypeChart.Type typeP1 = TypeMapper.depuisCobblemon(p.getPrimaryType());
-            TypeChart.Type typeP2 = p.getSecondaryType() != null
-                    ? TypeMapper.depuisCobblemon(p.getSecondaryType()) : null;
-
-            int pvPourcent = p.getMaxHealth() > 0 ? (p.getCurrentHealth() * 100 / p.getMaxHealth()) : 0;
-            rangs.add(new RangNomTypes(
-                    p.getSpecies().getName() + " (Nv." + p.getLevel() + ") " + pvPourcent + "% PV",
-                    typeP1, typeP2
-            ));
-
-            Matchup.Ligne menace = Matchup.meilleure(Matchup.depuisAdversaire(
-                    ctx.spread.topMoves, ctx.atk, ctx.spa, ctx.niveau, ctx.type1, ctx.type2,
-                    p, typeP1, typeP2
-            ));
-            Matchup.Ligne riposte = Matchup.meilleure(Matchup.versCible(
-                    p, typeP1, typeP2, ctx.def, ctx.spd, ctx.getPvMaxPourCalcul(), ctx.type1, ctx.type2
-            ));
-
-            String texteGauche = menace != null
-                    ? String.format("Subit: %s (%s)", menace.resultat(), menace.nom())
-                    : "Subit: inconnu";
-            int couleurGauche = menace != null ? menace.couleurResultat() : 0xFF888888;
-
-            String texteDroite = riposte != null
-                    ? String.format("Fait: %s (%s)", riposte.resultat(), riposte.nom())
-                    : "Fait: inconnu";
-            int couleurDroite = riposte != null ? riposte.couleurResultat() : 0xFF888888;
-
-            rangs.add(new RangSwitchDetail(texteGauche, couleurGauche, texteDroite, couleurDroite));
-        }
-
         return rangs;
-    }
-
-    private static void dessinerPanneauFinal(List<Rang> rangs) {
-        // méthode laissée vide intentionnellement : le rendu effectif se
-        // fait dans dessinerPanneau(), appelée juste après construireRangs()
     }
 
     private static int couleurBarreVie(double ratio) {
@@ -174,7 +137,6 @@ public class CalcHud {
         if (rang instanceof RangNomTypes) return 13;
         if (rang instanceof RangBarreVie) return 12;
         if (rang instanceof RangMove) return 11;
-        if (rang instanceof RangSwitchDetail) return 11;
         if (rang instanceof RangEspace) return 5;
         return 11;
     }
@@ -226,16 +188,6 @@ public class CalcHud {
                 int largeurResultat = client.textRenderer.getWidth(resultat);
                 contexte.drawTextWithShadow(client.textRenderer, resultat,
                         x + LARGEUR_PANNEAU - 6 - largeurResultat, curseurY + 1, rm.couleurResultat());
-
-            } else if (rang instanceof RangSwitchDetail rs) {
-                int moitie = (LARGEUR_PANNEAU - 12) / 2;
-                String gauche = client.textRenderer.trimToWidth(rs.texteGauche(), moitie - 3);
-                contexte.drawTextWithShadow(client.textRenderer, gauche, curseurX, curseurY, rs.couleurGauche());
-
-                String droite = client.textRenderer.trimToWidth(rs.texteDroite(), moitie - 3);
-                int largeurDroite = client.textRenderer.getWidth(droite);
-                contexte.drawTextWithShadow(client.textRenderer, droite,
-                        x + LARGEUR_PANNEAU - 6 - largeurDroite, curseurY, rs.couleurDroite());
             }
 
             curseurY += hauteurDe(rang);
