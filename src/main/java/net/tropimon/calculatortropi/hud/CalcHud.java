@@ -40,7 +40,6 @@ public class CalcHud {
     private static final int LARGEUR_BARRE_VIE = 110;
     private static final int HAUTEUR_BARRE_VIE = 6;
 
-    // --- Rangées du panneau ---
     private interface Rang {}
 
     private record RangTexte(String texte, int couleur) implements Rang {}
@@ -93,7 +92,6 @@ public class CalcHud {
         List<Rang> rangs = new ArrayList<>();
         rangs.add(new RangTexte("=== Calculatortropi ===", 0xFF55FFFF));
 
-        // --- Notre Pokémon ---
         TypeChart.Type typeNous1 = TypeMapper.depuisCobblemon(monPokemonComplet.getPrimaryType());
         TypeChart.Type typeNous2 = monPokemonComplet.getSecondaryType() != null
                 ? TypeMapper.depuisCobblemon(monPokemonComplet.getSecondaryType()) : null;
@@ -109,7 +107,6 @@ public class CalcHud {
 
         rangs.add(new RangTexte("contre", 0xFFAAAAAA));
 
-        // --- Adversaire ---
         Species especeAdverse = actifAdverse.getSpecies();
         int niveauAdverse = actifAdverse.getLevel();
         boolean pvExacts = actifAdverse.isHpFlat();
@@ -239,12 +236,14 @@ public class CalcHud {
     }
 
     private static void dessinerPanneau(DrawContext contexte, MinecraftClient client, List<Rang> rangs) {
-        int x = 8;
-        int y = 8;
         int largeurTexteDisponible = LARGEUR_PANNEAU - 12 - LARGEUR_BADGE * 2 - 6;
 
         int hauteurPanneau = 8;
         for (Rang rang : rangs) hauteurPanneau += hauteurDe(rang);
+
+        PanelDragHandler.mettreAJour(client, LARGEUR_PANNEAU, hauteurPanneau);
+        int x = PanelDragHandler.getX();
+        int y = PanelDragHandler.getY();
 
         contexte.fill(x, y, x + LARGEUR_PANNEAU, y + hauteurPanneau, 0xCC000000);
 
@@ -284,7 +283,6 @@ public class CalcHud {
                 contexte.drawTextWithShadow(client.textRenderer, resultat,
                         x + LARGEUR_PANNEAU - 6 - largeurResultat, curseurY + 1, rm.couleurResultat());
             }
-            // RangEspace : rien à dessiner, juste l'espace
 
             curseurY += hauteurDe(rang);
         }
