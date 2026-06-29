@@ -17,6 +17,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.8'
+      - name: Inspecter l'API Cobblemon réelle
+        run: gradle inspectCobblemon
+        env:
+          GRADLE_OPTS: "-Xmx4g -Xms1g"
       - name: Compiler le mod
         run: gradle build
         env:
