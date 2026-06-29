@@ -17,7 +17,7 @@ public class SwitchTooltip {
     private static final int LARGEUR_BADGE = 24;
     private static final int HAUTEUR_BADGE = 10;
     private static final int LARGEUR_PANNEAU = 220;
-    private static final int MARGE = 28;
+    private static final int MARGE = 40;
 
     // Taille réelle d'une case affichée (constantes Cobblemon: SELECT_WIDTH * SCALE)
     private static final float LARGEUR_CASE = 94f * 0.5f;
