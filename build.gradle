@@ -53,47 +53,32 @@ tasks.register('inspectCobblemon') {
         copy {
             from zipTree(jarFile)
             into tempDir
-            include 'com/cobblemon/mod/common/client/storage/ClientStorageManager.class'
-            include 'com/cobblemon/mod/common/client/storage/ClientParty.class'
-            include 'com/cobblemon/mod/common/client/CobblemonClient.class'
-            include 'com/cobblemon/mod/common/pokemon/Pokemon.class'
-            include 'com/cobblemon/mod/common/pokemon/Species.class'
-            include 'com/cobblemon/mod/common/pokemon/Nature.class'
-            include 'com/cobblemon/mod/common/api/abilities/Ability.class'
-            include 'com/cobblemon/mod/common/api/types/ElementalType.class'
+            include 'com/cobblemon/mod/common/client/battle/**'
+            include 'com/cobblemon/mod/common/battles/pokemon/BattlePokemon.class'
         }
 
-        def imprimer = { String chemin, String nomClasse, List<String> motsCles ->
-            def fichierClasse = new File(tempDir, chemin)
-            if (!fichierClasse.exists()) {
-                println "CLASSE NON TROUVEE DANS LE JAR: ${nomClasse}"
-                return
-            }
-            def sortie = new ByteArrayOutputStream()
-            exec {
-                commandLine 'javap', '-p', fichierClasse.absolutePath
-                standardOutput = sortie
-            }
-            println "==================== ${nomClasse} ===================="
-            sortie.toString().eachLine { ligne ->
-                if (motsCles.isEmpty() || motsCles.any { mot -> ligne.toLowerCase().contains(mot) }) {
-                    println ligne
+        def dossierBattle = new File(tempDir, 'com/cobblemon/mod/common/client/battle')
+        if (dossierBattle.exists()) {
+            dossierBattle.eachFileRecurse { fichier ->
+                if (fichier.name.endsWith('.class') && !fichier.name.contains('$')) {
+                    println "==================== ${fichier.name} ===================="
+                    exec {
+                        commandLine 'javap', '-p', fichier.absolutePath
+                    }
                 }
             }
+        } else {
+            println "DOSSIER client/battle NON TROUVE DANS LE JAR"
         }
 
-        imprimer('com/cobblemon/mod/common/client/storage/ClientStorageManager.class', 'ClientStorageManager', [])
-        imprimer('com/cobblemon/mod/common/client/storage/ClientParty.class', 'ClientParty', [])
-        imprimer('com/cobblemon/mod/common/client/CobblemonClient.class', 'CobblemonClient', [])
-        imprimer('com/cobblemon/mod/common/pokemon/Pokemon.class', 'Pokemon (filtré)', [
-            'species', 'level', 'nature', 'ability', 'currenthealth', 'maxhealth',
-            'attack', 'defence', 'speed', 'helditem'
-        ])
-        imprimer('com/cobblemon/mod/common/pokemon/Species.class', 'Species (filtré)', [
-            'basestats', 'primarytype', 'secondarytype', 'getname', 'name('
-        ])
-        imprimer('com/cobblemon/mod/common/pokemon/Nature.class', 'Nature', [])
-        imprimer('com/cobblemon/mod/common/api/abilities/Ability.class', 'Ability', [])
-        imprimer('com/cobblemon/mod/common/api/types/ElementalType.class', 'ElementalType', [])
+        def battlePokemonFile = new File(tempDir, 'com/cobblemon/mod/common/battles/pokemon/BattlePokemon.class')
+        if (battlePokemonFile.exists()) {
+            println "==================== BattlePokemon.class ===================="
+            exec {
+                commandLine 'javap', '-p', battlePokemonFile.absolutePath
+            }
+        } else {
+            println "BattlePokemon.class NON TROUVE"
+        }
     }
 }
