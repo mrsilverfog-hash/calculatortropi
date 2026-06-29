@@ -40,8 +40,25 @@ tasks.register('inspectCobblemon') {
 
         def artefacts = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts
 
+        // --- Lister tous les noms de classe d'écrans de combat Cobblemon liés au switch/équipe ---
+        def jarCobblemon = artefacts.find { it.moduleVersion.id.group.contains('cobblemon') || it.file.name.startsWith('fabric-1.7.2') }?.file
+        if (jarCobblemon != null) {
+            println "JAR COBBLEMON: ${jarCobblemon.name}"
+            println "==================== Classes GUI de combat contenant Switch/Choose/Party/Team ===================="
+            zipTree(jarCobblemon).matching {
+                include 'com/cobblemon/mod/common/client/gui/**/*.class'
+            }.files.each { fichier ->
+                def nom = fichier.name
+                if (!nom.contains('$') && (nom.contains('Switch') || nom.contains('Choose') || nom.contains('Party') || nom.contains('Team'))) {
+                    println nom
+                }
+            }
+        } else {
+            println "JAR COBBLEMON NON TROUVE"
+        }
+
         def afficherClasse = { File jarFile, String cheminClasse, String etiquette ->
-            def dossierExtrait = new File(tempDir, etiquette)
+            def dossierExtrait = new File(tempDir, etiquette + cheminClasse.hashCode())
             dossierExtrait.mkdirs()
             copy {
                 from zipTree(jarFile)
@@ -57,13 +74,18 @@ tasks.register('inspectCobblemon') {
             }
         }
 
-        def jarMinecraft = artefacts.find { it.file.name.contains('minecraft-merged') }?.file
-        if (jarMinecraft != null) {
-            println "JAR MINECRAFT: ${jarMinecraft.name}"
-            afficherClasse(jarMinecraft, 'net/minecraft/client/Mouse.class', 'minecraft')
-            afficherClasse(jarMinecraft, 'net/minecraft/client/util/Window.class', 'minecraft')
+        // --- API Fabric pour dessiner par-dessus n'importe quel écran ---
+        def jarScreenApi = artefacts.find { it.file.name.contains('fabric-screen-api-v1') }?.file
+        if (jarScreenApi != null) {
+            println "JAR FABRIC SCREEN API: ${jarScreenApi.name}"
+            zipTree(jarScreenApi).matching { include '**/*.class' }.files.each { fichier ->
+                if (!fichier.name.contains('$') && !fichier.name.contains('Mixin')) {
+                    println "==================== fabric-screen-api : ${fichier.name} ===================="
+                    exec { commandLine 'javap', '-p', fichier.absolutePath }
+                }
+            }
         } else {
-            println "JAR MINECRAFT NON TROUVE"
+            println "JAR FABRIC SCREEN API NON TROUVE"
         }
     }
 }
