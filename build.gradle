@@ -57,29 +57,13 @@ tasks.register('inspectCobblemon') {
             }
         }
 
-        // --- Jar Minecraft (Screen, DrawContext, TextRenderer, MinecraftClient) ---
         def jarMinecraft = artefacts.find { it.file.name.contains('minecraft-merged') }?.file
         if (jarMinecraft != null) {
             println "JAR MINECRAFT: ${jarMinecraft.name}"
-            afficherClasse(jarMinecraft, 'net/minecraft/client/gui/screen/Screen.class', 'minecraft')
-            afficherClasse(jarMinecraft, 'net/minecraft/client/gui/DrawContext.class', 'minecraft')
-            afficherClasse(jarMinecraft, 'net/minecraft/client/font/TextRenderer.class', 'minecraft')
+            afficherClasse(jarMinecraft, 'net/minecraft/client/Mouse.class', 'minecraft')
+            afficherClasse(jarMinecraft, 'net/minecraft/client/util/Window.class', 'minecraft')
         } else {
             println "JAR MINECRAFT NON TROUVE"
-        }
-
-        // --- Jar Fabric API rendu (HudRenderCallback - nom de package inconnu, on cherche par mot-clé) ---
-        def jarRendu = artefacts.find { it.file.name.contains('fabric-rendering-v1') }?.file
-        if (jarRendu != null) {
-            println "JAR FABRIC RENDERING: ${jarRendu.name}"
-            zipTree(jarRendu).matching { include '**/*Hud*.class' }.files.each { fichier ->
-                if (!fichier.name.contains('$')) {
-                    println "==================== fabric-rendering : ${fichier.name} ===================="
-                    exec { commandLine 'javap', '-p', fichier.absolutePath }
-                }
-            }
-        } else {
-            println "JAR FABRIC RENDERING NON TROUVE"
         }
     }
 }
