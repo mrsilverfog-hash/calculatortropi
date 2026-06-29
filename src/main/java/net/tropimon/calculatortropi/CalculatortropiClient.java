@@ -2,6 +2,7 @@ package net.tropimon.calculatortropi;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.tropimon.calculatortropi.command.CalcMoveCommand;
 import net.tropimon.calculatortropi.command.CalcOpponentCommand;
 import net.tropimon.calculatortropi.command.CalcSpreadCommand;
 import net.tropimon.calculatortropi.command.CalcTeamCommand;
@@ -24,6 +25,7 @@ public class CalculatortropiClient implements ClientModInitializer {
                     CalcTeamCommand.register(dispatcher);
                     CalcOpponentCommand.register(dispatcher);
                     CalcSpreadCommand.register(dispatcher);
+                    CalcMoveCommand.register(dispatcher);
                 }
         );
     }
