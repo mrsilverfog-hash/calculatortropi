@@ -46,20 +46,25 @@ tasks.register('inspectCobblemon') {
             return
         }
 
-        def classesACibler = [
-            'BattleOverlay.class',
-            'BattleGUI.class',
-            'BattleActionSelection.class',
-            'BattleSwitchPokemonSelection\$SwitchTile.class'
-        ]
-
-        zipTree(jarCobblemon).matching {
-            include 'com/cobblemon/mod/common/client/gui/battle/**/*.class'
-        }.files.each { fichier ->
-            if (classesACibler.contains(fichier.name)) {
-                println "==================== ${fichier.name} ===================="
-                exec { commandLine 'javap', '-p', fichier.absolutePath }
+        def afficherAvecConstantes = { String cheminClasse, String etiquette ->
+            def dossierExtrait = new File(tempDir, etiquette + cheminClasse.hashCode())
+            dossierExtrait.mkdirs()
+            copy {
+                from zipTree(jarCobblemon)
+                into dossierExtrait
+                include cheminClasse
+            }
+            def fichier = new File(dossierExtrait, cheminClasse)
+            println "==================== ${etiquette} ===================="
+            if (fichier.exists()) {
+                exec { commandLine 'javap', '-p', '-constants', fichier.absolutePath }
+            } else {
+                println "NON TROUVE"
             }
         }
+
+        afficherAvecConstantes('com/cobblemon/mod/common/api/gui/ParentWidget.class', 'ParentWidget')
+        afficherAvecConstantes('com/cobblemon/mod/common/client/gui/battle/subscreen/BattleSwitchPokemonSelection.class', 'BattleSwitchPokemonSelection (avec valeurs)')
+        afficherAvecConstantes('com/cobblemon/mod/common/client/gui/battle/subscreen/BattleSwitchPokemonSelection$SwitchTile.class', 'SwitchTile (avec valeurs)')
     }
 }
