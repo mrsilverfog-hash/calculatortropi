@@ -122,7 +122,7 @@ public class CalcHud {
             lignes.add("--- Vos capacites -> adversaire ---");
             for (Move m : monPokemonComplet.getMoveSet()) {
                 if (m == null) continue;
-                ajouterLigneDegats(lignes, m.getDisplayName().getString(), m.getPower(), m.getElementalType(), m.getDamageCategory(),
+                ajouterLigneDegats(lignes, m.getDisplayName().getString(), m.getPower(), m.getType(), m.getDamageCategory(),
                         monPokemonComplet.getAttack(), monPokemonComplet.getSpecialAttack(), monPokemonComplet.getLevel(),
                         defAdv, spdAdv, pvMaxAdv, typeNous1, typeNous2, typeAdv1, typeAdv2);
             }
