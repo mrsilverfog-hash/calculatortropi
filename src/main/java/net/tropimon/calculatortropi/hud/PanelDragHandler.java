@@ -7,7 +7,7 @@ import org.lwjgl.glfw.GLFW;
 public class PanelDragHandler {
 
     private static int panelX = 8;
-    private static int panelY = 170;
+    private static int panelY = 90;
 
     private static boolean enTrainDeDeplacer = false;
     private static boolean boutonAppuyePrecedemment = false;
