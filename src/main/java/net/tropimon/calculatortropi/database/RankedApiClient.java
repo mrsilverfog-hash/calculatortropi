@@ -13,12 +13,16 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class RankedApiClient {
 
-    // A mettre a jour a chaque nouvelle saison du ranked Tropimon
     private static final String SAISON = "Season 4";
     private static final String FORMAT = "SINGLES";
 
@@ -26,21 +30,45 @@ public class RankedApiClient {
             .connectTimeout(Duration.ofSeconds(3))
             .build();
 
-    // On garde en mémoire ce qu'on a déjà demandé pour ne pas re-appeler
-    // l'API à chaque /calcopponent sur le même Pokémon dans la session.
-    private static final Map<String, SpreadEntry> CACHE = new ConcurrentHashMap<>();
-    private static final Map<String, Boolean> ECHECS_CONNUS = new ConcurrentHashMap<>();
+    private static final ExecutorService EXECUTEUR = Executors.newFixedThreadPool(2, runnable -> {
+        Thread t = new Thread(runnable, "Calculatortropi-RankedAPI");
+        t.setDaemon(true);
+        return t;
+    });
 
+    private enum Etat { EN_COURS, REUSSI, ECHEC }
+
+    private static final Map<String, Etat> ETATS = new ConcurrentHashMap<>();
+    private static final Map<String, SpreadEntry> CACHE = new ConcurrentHashMap<>();
+
+    /**
+     * Non bloquant : renvoie ce qu'on a déjà en cache (ou null si pas encore
+     * prêt), et déclenche une recherche en tâche de fond si besoin.
+     * A utiliser depuis le rendu HUD (60fps), jamais d'appel réseau direct ici.
+     */
+    public static SpreadEntry obtenirSiDisponible(String nomEspece) {
+        String cle = nomEspece.toLowerCase();
+        if (ETATS.get(cle) == null) {
+            ETATS.put(cle, Etat.EN_COURS);
+            EXECUTEUR.submit(() -> rechercher(nomEspece, cle));
+        }
+        return CACHE.get(cle);
+    }
+
+    public static boolean estEnCoursDeChargement(String nomEspece) {
+        return ETATS.get(nomEspece.toLowerCase()) == Etat.EN_COURS;
+    }
+
+    /** Version bloquante : gardée pour /calcspread, une commande ponctuelle, pas le rendu. */
     public static SpreadEntry obtenir(String nomEspece) {
         String cle = nomEspece.toLowerCase();
+        if (CACHE.containsKey(cle)) return CACHE.get(cle);
+        if (ETATS.get(cle) == Etat.ECHEC) return null;
+        rechercher(nomEspece, cle);
+        return CACHE.get(cle);
+    }
 
-        if (CACHE.containsKey(cle)) {
-            return CACHE.get(cle);
-        }
-        if (ECHECS_CONNUS.containsKey(cle)) {
-            return null;
-        }
-
+    private static void rechercher(String nomEspece, String cle) {
         try {
             String url = "https://rankedapi.tropimon.fr/api/species"
                     + "?season=" + URLEncoder.encode(SAISON, StandardCharsets.UTF_8)
@@ -58,22 +86,21 @@ public class RankedApiClient {
 
             if (reponse.statusCode() != 200) {
                 CalculatortropiClient.LOGGER.warn("[Calculatortropi] API ranked code " + reponse.statusCode() + " pour " + nomEspece);
-                ECHECS_CONNUS.put(cle, true);
-                return null;
+                ETATS.put(cle, Etat.ECHEC);
+                return;
             }
 
             SpreadEntry entree = analyser(reponse.body());
             if (entree != null) {
                 CACHE.put(cle, entree);
+                ETATS.put(cle, Etat.REUSSI);
             } else {
-                ECHECS_CONNUS.put(cle, true);
+                ETATS.put(cle, Etat.ECHEC);
             }
-            return entree;
 
         } catch (IOException | InterruptedException | RuntimeException e) {
             CalculatortropiClient.LOGGER.warn("[Calculatortropi] Erreur API ranked pour " + nomEspece + " : " + e.getMessage());
-            ECHECS_CONNUS.put(cle, true);
-            return null;
+            ETATS.put(cle, Etat.ECHEC);
         }
     }
 
@@ -84,6 +111,7 @@ public class RankedApiClient {
         String natureTexte = trouverCleMax(racine.getAsJsonObject("natures"));
         String talent = trouverCleMax(racine.getAsJsonObject("abilities"));
         String spreadTexte = trouverCleMax(racine.getAsJsonObject("spreads"));
+        List<String> topMoves = trouverTopCles(racine.getAsJsonObject("moves"), 6);
 
         Nature nature = Nature.HARDY;
         if (natureTexte != null) {
@@ -95,7 +123,7 @@ public class RankedApiClient {
 
         int[] ev = analyserSpread(spreadTexte);
 
-        return new SpreadEntry(objet, nature, ev[0], ev[1], ev[2], ev[3], ev[4], ev[5], talent);
+        return new SpreadEntry(objet, nature, ev[0], ev[1], ev[2], ev[3], ev[4], ev[5], talent, topMoves);
     }
 
     private static String trouverCleMax(JsonObject objetJson) {
@@ -112,7 +140,22 @@ public class RankedApiClient {
         return meilleureCle;
     }
 
-    // Parse "252 Atk / 6 SpD / 252 Spe" -> [pv, atk, def, spa, spd, spe]
+    private static List<String> trouverTopCles(JsonObject objetJson, int max) {
+        List<String> resultat = new ArrayList<>();
+        if (objetJson == null) return resultat;
+
+        List<Map.Entry<String, Double>> entrees = new ArrayList<>();
+        for (String cle : objetJson.keySet()) {
+            entrees.add(Map.entry(cle, objetJson.get(cle).getAsDouble()));
+        }
+        entrees.sort(Comparator.comparingDouble((Map.Entry<String, Double> e) -> e.getValue()).reversed());
+
+        for (int i = 0; i < Math.min(max, entrees.size()); i++) {
+            resultat.add(entrees.get(i).getKey());
+        }
+        return resultat;
+    }
+
     private static int[] analyserSpread(String texte) {
         int[] ev = new int[6];
         if (texte == null) return ev;
