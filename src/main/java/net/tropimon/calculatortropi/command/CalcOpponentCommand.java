@@ -15,6 +15,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.tropimon.calculatortropi.calc.TypeChart;
 import net.tropimon.calculatortropi.cobblemon.TypeMapper;
+import net.tropimon.calculatortropi.database.RankedApiClient;
+import net.tropimon.calculatortropi.database.SpreadDatabase;
+import net.tropimon.calculatortropi.database.SpreadEntry;
 
 import java.util.UUID;
 
@@ -32,6 +35,13 @@ public class CalcOpponentCommand {
 
         if (combat == null) {
             contexte.getSource().sendFeedback(Text.literal("Tu n'es pas en combat."));
+            return 1;
+        }
+
+        if (combat.isPvW()) {
+            contexte.getSource().sendFeedback(Text.literal(
+                    "Combat contre un Pokémon sauvage : pas de recherche de spread (pour éviter les ralentissements)."
+            ));
             return 1;
         }
 
@@ -73,6 +83,25 @@ public class CalcOpponentCommand {
                             "Adversaire détecté : %s (Nv.%d) [%s] %s",
                             espece.getName(), niveau, typesTexte, texteVie
                     )));
+
+                    SpreadEntry spread = RankedApiClient.obtenir(espece.getName());
+                    String source = "API ranked Tropimon";
+                    if (spread == null) {
+                        spread = SpreadDatabase.trouver(espece.getName());
+                        source = "base locale (fallback)";
+                    }
+
+                    if (spread != null) {
+                        contexte.getSource().sendFeedback(Text.literal(String.format(
+                                "  -> [%s] Objet: %s | Nature: %s | EV PV:%d Atk:%d Def:%d SpA:%d SpD:%d Spe:%d | Talent: %s",
+                                source, spread.objet, spread.nature, spread.evPv, spread.evAtk, spread.evDef,
+                                spread.evSpa, spread.evSpd, spread.evSpe, spread.talent
+                        )));
+                    } else {
+                        contexte.getSource().sendFeedback(Text.literal(
+                                "  -> Aucune spread connue pour cette espèce (ni API, ni base locale)."
+                        ));
+                    }
                 }
             }
         }
