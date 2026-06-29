@@ -21,38 +21,56 @@ public class SwitchTooltip {
     private static final int MARGE = 8;
 
     public static void dessiner(DrawContext contexte, MinecraftClient client, BattleGUI battleGUI) {
-        BattleActionSelection selection = battleGUI.getCurrentActionSelection();
-        if (!(selection instanceof BattleSwitchPokemonSelection switchSelection)) return;
+        try {
+            BattleActionSelection selection = battleGUI.getCurrentActionSelection();
+            if (!(selection instanceof BattleSwitchPokemonSelection switchSelection)) return;
 
-        OpponentContext ctx = OpponentContext.detecter();
-        if (ctx == null || ctx.spread == null) return;
+            OpponentContext ctx = OpponentContext.detecter();
 
-        Window fenetre = client.getWindow();
-        double sourisX = client.mouse.getX() * fenetre.getScaledWidth() / fenetre.getWidth();
-        double sourisY = client.mouse.getY() * fenetre.getScaledHeight() / fenetre.getHeight();
+            int xPanneau = switchSelection.getX() + switchSelection.getWidth() + MARGE;
+            int yPanneau = switchSelection.getY();
 
-        Pokemon survole = null;
-        for (BattleSwitchPokemonSelection.SwitchTile tuile : switchSelection.getTiles()) {
-            if (tuile.isHovered(sourisX, sourisY)) {
-                survole = tuile.getPokemon();
-                break;
+            // --- BANNIERE DEBUG TEMPORAIRE (à retirer une fois le souci identifié) ---
+            String debug = String.format(
+                    "DEBUG widget x=%d y=%d w=%d h=%d | ctx=%s spread=%s",
+                    switchSelection.getX(), switchSelection.getY(),
+                    switchSelection.getWidth(), switchSelection.getHeight(),
+                    ctx != null, ctx != null && ctx.spread != null
+            );
+            contexte.fill(8, 300, 8 + client.textRenderer.getWidth(debug) + 8, 315, 0xEEFFAA00);
+            contexte.drawText(client.textRenderer, debug, 12, 303, 0xFF000000, false);
+            // --- FIN BANNIERE DEBUG ---
+
+            Pokemon survole = null;
+            for (BattleSwitchPokemonSelection.SwitchTile tuile : switchSelection.getTiles()) {
+                if (tuile.isHovered(
+                        client.mouse.getX() * client.getWindow().getScaledWidth() / client.getWindow().getWidth(),
+                        client.mouse.getY() * client.getWindow().getScaledHeight() / client.getWindow().getHeight()
+                )) {
+                    survole = tuile.getPokemon();
+                    break;
+                }
             }
-        }
 
-        // Position FIXE : à droite du menu Équipe, ne dépend plus de la
-        // souris - seul le contenu texte change selon le survol.
-        int xPanneau = switchSelection.getX() + switchSelection.getWidth() + MARGE;
-        int yPanneau = switchSelection.getY();
+            if (ctx == null || ctx.spread == null) {
+                dessinerPlaceholder(contexte, client, xPanneau, yPanneau, "Pas de spread adverse disponible.");
+                return;
+            }
 
-        if (survole == null) {
-            dessinerPlaceholder(contexte, client, xPanneau, yPanneau);
-        } else {
-            dessinerMatchup(contexte, client, survole, ctx, xPanneau, yPanneau);
+            if (survole == null) {
+                dessinerPlaceholder(contexte, client, xPanneau, yPanneau, "Survole un Pokémon...");
+            } else {
+                dessinerMatchup(contexte, client, survole, ctx, xPanneau, yPanneau);
+            }
+
+        } catch (Exception e) {
+            String erreur = "Erreur SwitchTooltip: " + e;
+            contexte.fill(8, 320, 8 + client.textRenderer.getWidth(erreur) + 8, 335, 0xEEFF0000);
+            contexte.drawText(client.textRenderer, erreur, 12, 323, 0xFFFFFFFF, false);
         }
     }
 
-    private static void dessinerPlaceholder(DrawContext contexte, MinecraftClient client, int x, int y) {
-        String texte = "Survole un Pokémon...";
+    private static void dessinerPlaceholder(DrawContext contexte, MinecraftClient client, int x, int y, String texte) {
         int largeur = Math.max(LARGEUR_PANNEAU, client.textRenderer.getWidth(texte) + 12);
         contexte.fill(x, y, x + largeur, y + 19, 0xEE000000);
         contexte.drawTextWithShadow(client.textRenderer, texte, x + 6, y + 6, 0xFFAAAAAA);
