@@ -17,6 +17,8 @@ public class SwitchTooltip {
 
     private static final int LARGEUR_BADGE = 24;
     private static final int HAUTEUR_BADGE = 10;
+    private static final int LARGEUR_PANNEAU = 220;
+    private static final int MARGE = 8;
 
     public static void dessiner(DrawContext contexte, MinecraftClient client, BattleGUI battleGUI) {
         BattleActionSelection selection = battleGUI.getCurrentActionSelection();
@@ -29,20 +31,36 @@ public class SwitchTooltip {
         double sourisX = client.mouse.getX() * fenetre.getScaledWidth() / fenetre.getWidth();
         double sourisY = client.mouse.getY() * fenetre.getScaledHeight() / fenetre.getHeight();
 
+        Pokemon survole = null;
         for (BattleSwitchPokemonSelection.SwitchTile tuile : switchSelection.getTiles()) {
-            if (!tuile.isHovered(sourisX, sourisY)) continue;
+            if (tuile.isHovered(sourisX, sourisY)) {
+                survole = tuile.getPokemon();
+                break;
+            }
+        }
 
-            Pokemon candidat = tuile.getPokemon();
-            if (candidat == null) continue;
+        // Position FIXE : à droite du menu Équipe, ne dépend plus de la
+        // souris - seul le contenu texte change selon le survol.
+        int xPanneau = switchSelection.getX() + switchSelection.getWidth() + MARGE;
+        int yPanneau = switchSelection.getY();
 
-            dessinerTooltip(contexte, client, candidat, ctx, sourisX, sourisY);
-            return;
+        if (survole == null) {
+            dessinerPlaceholder(contexte, client, xPanneau, yPanneau);
+        } else {
+            dessinerMatchup(contexte, client, survole, ctx, xPanneau, yPanneau);
         }
     }
 
-    private static void dessinerTooltip(
+    private static void dessinerPlaceholder(DrawContext contexte, MinecraftClient client, int x, int y) {
+        String texte = "Survole un Pokémon...";
+        int largeur = Math.max(LARGEUR_PANNEAU, client.textRenderer.getWidth(texte) + 12);
+        contexte.fill(x, y, x + largeur, y + 19, 0xEE000000);
+        contexte.drawTextWithShadow(client.textRenderer, texte, x + 6, y + 6, 0xFFAAAAAA);
+    }
+
+    private static void dessinerMatchup(
             DrawContext contexte, MinecraftClient client, Pokemon candidat,
-            OpponentContext ctx, double sourisX, double sourisY
+            OpponentContext ctx, int x, int y
     ) {
         TypeChart.Type typeP1 = TypeMapper.depuisCobblemon(candidat.getPrimaryType());
         TypeChart.Type typeP2 = candidat.getSecondaryType() != null
@@ -90,17 +108,9 @@ public class SwitchTooltip {
             largeurMax = Math.max(largeurMax, largeur);
         }
 
-        int largeurBoite = largeurMax + 12;
+        int largeurBoite = Math.max(LARGEUR_PANNEAU, largeurMax + 12);
         int hauteurLigne = 11;
         int hauteurBoite = texte.size() * hauteurLigne + 8;
-
-        int x = (int) sourisX + 14;
-        int y = (int) sourisY;
-
-        int largeurEcran = client.getWindow().getScaledWidth();
-        int hauteurEcran = client.getWindow().getScaledHeight();
-        if (x + largeurBoite > largeurEcran) x = largeurEcran - largeurBoite - 4;
-        if (y + hauteurBoite > hauteurEcran) y = hauteurEcran - hauteurBoite - 4;
 
         contexte.fill(x, y, x + largeurBoite, y + hauteurBoite, 0xEE000000);
 
