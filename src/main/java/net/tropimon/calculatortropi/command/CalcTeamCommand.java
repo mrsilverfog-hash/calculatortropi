@@ -27,7 +27,7 @@ public class CalcTeamCommand {
         ClientStorageManager storage = CobblemonClient.INSTANCE.getStorage();
 
         boolean trouve = false;
-        for (Pokemon pokemon : storage.getMyParty()) {
+        for (Pokemon pokemon : storage.getParty()) {
             if (pokemon == null) continue;
             trouve = true;
 
