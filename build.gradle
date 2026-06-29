@@ -40,11 +40,11 @@ tasks.register('inspectCobblemon') {
         }
 
         def cobblemonArtifact = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
-            it.moduleVersion.id.group == 'com.cobblemon'
+            it.moduleVersion.id.group.contains('cobblemon') || it.file.name.startsWith('fabric-1.7.2')
         }
 
         if (cobblemonArtifact == null) {
-            println "AUCUN ARTEFACT com.cobblemon TROUVE - voir la liste ci-dessus"
+            println "AUCUN ARTEFACT COBBLEMON TROUVE - voir la liste ci-dessus"
             return
         }
 
