@@ -7,8 +7,8 @@ import com.cobblemon.mod.common.client.battle.ClientBattle;
 import com.cobblemon.mod.common.client.battle.ClientBattleActor;
 import com.cobblemon.mod.common.client.battle.ClientBattlePokemon;
 import com.cobblemon.mod.common.client.battle.ClientBattleSide;
-import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.pokemon.Species;
+import net.minecraft.client.MinecraftClient;
 import net.tropimon.calculatortropi.calc.Stat;
 import net.tropimon.calculatortropi.calc.StatCalculator;
 import net.tropimon.calculatortropi.calc.TypeChart;
@@ -17,8 +17,6 @@ import net.tropimon.calculatortropi.database.RankedApiClient;
 import net.tropimon.calculatortropi.database.SpreadDatabase;
 import net.tropimon.calculatortropi.database.SpreadEntry;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -71,26 +69,28 @@ public class OpponentContext {
         return (int) pvMaxReel;
     }
 
-    /** Renvoie null si pas en combat exploitable (pas de combat, ou identification impossible). */
+    /** Renvoie null si pas en combat exploitable. */
     public static OpponentContext detecter() {
         ClientBattle combat = CobblemonClient.INSTANCE.getBattle();
         if (combat == null) return null;
 
-        Set<UUID> uuidsDeMaParty = new HashSet<>();
-        for (Pokemon p : CobblemonClient.INSTANCE.getStorage().getParty()) {
-            if (p != null) uuidsDeMaParty.add(p.getUuid());
-        }
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return null;
+        UUID monUuidJoueur = client.player.getUuid();
 
+        // Détection par UUID d'ACTEUR (le joueur), confirmée fiable en duel
+        // classique ET en classé via /calcdebug — pas besoin de comparer
+        // par UUID de Pokémon, qui s'est révélé moins fiable.
+        ClientBattlePokemon monActif = null;
         ClientBattlePokemon actifAdverse = null;
-        UUID monUuidActif = null;
 
         for (ClientBattleSide cote : combat.getSides()) {
             for (ClientBattleActor acteur : cote.getActors()) {
                 for (ActiveClientBattlePokemon actif : acteur.getActivePokemon()) {
                     ClientBattlePokemon bp = actif.getBattlePokemon();
                     if (bp == null) continue;
-                    if (uuidsDeMaParty.contains(bp.getUuid())) {
-                        monUuidActif = bp.getUuid();
+                    if (acteur.getUuid().equals(monUuidJoueur)) {
+                        monActif = bp;
                     } else if (actifAdverse == null) {
                         actifAdverse = bp;
                     }
@@ -98,7 +98,7 @@ public class OpponentContext {
             }
         }
 
-        if (actifAdverse == null || monUuidActif == null) return null;
+        if (monActif == null || actifAdverse == null) return null;
 
         Species espece = actifAdverse.getSpecies();
         int niveau = actifAdverse.getLevel();
@@ -131,7 +131,7 @@ public class OpponentContext {
         }
 
         return new OpponentContext(
-                monUuidActif, actifAdverse, espece, niveau, type1, type2, pvExacts, pvMaxReel, ratioPv,
+                monActif.getUuid(), actifAdverse, espece, niveau, type1, type2, pvExacts, pvMaxReel, ratioPv,
                 spread, enChargement, atk, def, spa, spd
         );
     }
