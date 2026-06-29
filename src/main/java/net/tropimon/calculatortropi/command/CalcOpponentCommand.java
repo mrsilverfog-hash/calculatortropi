@@ -51,9 +51,17 @@ public class CalcOpponentCommand {
                     trouve = true;
                     Species espece = pokemonAdverse.getSpecies();
                     int niveau = pokemonAdverse.getLevel();
-                    float pvActuel = pokemonAdverse.getHpValue();
                     float pvMax = pokemonAdverse.getMaxHp();
                     boolean pvExacts = pokemonAdverse.isHpFlat();
+
+                    String texteVie;
+                    if (pvExacts) {
+                        texteVie = String.format("%.0f/%.0f PV", pokemonAdverse.getHpValue(), pvMax);
+                    } else {
+                        double pourcentage = pokemonAdverse.getHpValue() * 100.0;
+                        double pvEstimes = pokemonAdverse.getHpValue() * pvMax;
+                        texteVie = String.format("~%.0f/%.0f PV (estimé, %.0f%% affiché)", pvEstimes, pvMax, pourcentage);
+                    }
 
                     TypeChart.Type type1 = TypeMapper.depuisCobblemon(espece.getPrimaryType());
                     TypeChart.Type type2 = espece.getSecondaryType() != null
@@ -62,8 +70,8 @@ public class CalcOpponentCommand {
                     String typesTexte = (type2 != null) ? (type1 + "/" + type2) : type1.toString();
 
                     contexte.getSource().sendFeedback(Text.literal(String.format(
-                            "Adversaire détecté : %s (Nv.%d) [%s] PV: %.0f/%.0f (exacts: %s)",
-                            espece.getName(), niveau, typesTexte, pvActuel, pvMax, pvExacts
+                            "Adversaire détecté : %s (Nv.%d) [%s] %s",
+                            espece.getName(), niveau, typesTexte, texteVie
                     )));
                 }
             }
