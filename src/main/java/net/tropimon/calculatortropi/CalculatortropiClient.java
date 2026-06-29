@@ -2,6 +2,7 @@ package net.tropimon.calculatortropi;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.tropimon.calculatortropi.command.CalcOpponentCommand;
 import net.tropimon.calculatortropi.command.CalcTeamCommand;
 import net.tropimon.calculatortropi.command.CalcTestCommand;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ public class CalculatortropiClient implements ClientModInitializer {
                 (dispatcher, registryAccess) -> {
                     CalcTestCommand.register(dispatcher);
                     CalcTeamCommand.register(dispatcher);
+                    CalcOpponentCommand.register(dispatcher);
                 }
         );
     }
