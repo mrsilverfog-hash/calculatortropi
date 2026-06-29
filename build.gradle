@@ -53,32 +53,40 @@ tasks.register('inspectCobblemon') {
         copy {
             from zipTree(jarFile)
             into tempDir
-            include 'com/cobblemon/mod/common/client/battle/**'
-            include 'com/cobblemon/mod/common/battles/pokemon/BattlePokemon.class'
+            include 'com/cobblemon/mod/common/pokemon/Pokemon.class'
+            include 'com/cobblemon/mod/common/api/moves/**'
+            include 'com/cobblemon/mod/common/moves/**'
+            include 'com/cobblemon/mod/common/api/pokemon/PokemonProperties.class'
         }
 
-        def dossierBattle = new File(tempDir, 'com/cobblemon/mod/common/client/battle')
-        if (dossierBattle.exists()) {
-            dossierBattle.eachFileRecurse { fichier ->
-                if (fichier.name.endsWith('.class') && !fichier.name.contains('$')) {
-                    println "==================== ${fichier.name} ===================="
-                    exec {
-                        commandLine 'javap', '-p', fichier.absolutePath
+        println "==================== Pokemon.class (complet) ===================="
+        def fichierPokemon = new File(tempDir, 'com/cobblemon/mod/common/pokemon/Pokemon.class')
+        if (fichierPokemon.exists()) {
+            exec { commandLine 'javap', '-p', fichierPokemon.absolutePath }
+        } else {
+            println "NON TROUVE"
+        }
+
+        ['com/cobblemon/mod/common/api/moves', 'com/cobblemon/mod/common/moves'].each { chemin ->
+            def dossier = new File(tempDir, chemin)
+            if (dossier.exists()) {
+                dossier.eachFileRecurse { fichier ->
+                    if (fichier.name.endsWith('.class') && !fichier.name.contains('$')) {
+                        println "==================== ${fichier.name} ===================="
+                        exec { commandLine 'javap', '-p', fichier.absolutePath }
                     }
                 }
+            } else {
+                println "DOSSIER NON TROUVE: ${chemin}"
             }
-        } else {
-            println "DOSSIER client/battle NON TROUVE DANS LE JAR"
         }
 
-        def battlePokemonFile = new File(tempDir, 'com/cobblemon/mod/common/battles/pokemon/BattlePokemon.class')
-        if (battlePokemonFile.exists()) {
-            println "==================== BattlePokemon.class ===================="
-            exec {
-                commandLine 'javap', '-p', battlePokemonFile.absolutePath
-            }
+        println "==================== PokemonProperties.class ===================="
+        def fichierProps = new File(tempDir, 'com/cobblemon/mod/common/api/pokemon/PokemonProperties.class')
+        if (fichierProps.exists()) {
+            exec { commandLine 'javap', '-p', fichierProps.absolutePath }
         } else {
-            println "BattlePokemon.class NON TROUVE"
+            println "NON TROUVE"
         }
     }
 }
