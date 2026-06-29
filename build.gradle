@@ -47,17 +47,14 @@ tasks.register('inspectCobblemon') {
         }
 
         def classesACibler = [
-            'PartySelectGUI.class',
-            'BattleSwitchPokemonSelection.class',
-            'PartySlotWidget.class',
-            'PartySlot.class',
-            'PartyStorageSlot.class',
-            'PartySlotButton.class',
-            'PartySelectConfiguration.class'
+            'BattleOverlay.class',
+            'BattleGUI.class',
+            'BattleActionSelection.class',
+            'BattleSwitchPokemonSelection\$SwitchTile.class'
         ]
 
         zipTree(jarCobblemon).matching {
-            include 'com/cobblemon/mod/common/client/gui/**/*.class'
+            include 'com/cobblemon/mod/common/client/gui/battle/**/*.class'
         }.files.each { fichier ->
             if (classesACibler.contains(fichier.name)) {
                 println "==================== ${fichier.name} ===================="
