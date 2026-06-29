@@ -9,8 +9,8 @@ import net.tropimon.calculatortropi.command.CalcSpreadCommand;
 import net.tropimon.calculatortropi.command.CalcTeamCommand;
 import net.tropimon.calculatortropi.command.CalcTestCommand;
 import net.tropimon.calculatortropi.database.SpreadDatabase;
+import net.tropimon.calculatortropi.hud.BattleScreenOverlay;
 import net.tropimon.calculatortropi.hud.CalcHud;
-import net.tropimon.calculatortropi.hud.SwitchTooltip;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +23,7 @@ public class CalculatortropiClient implements ClientModInitializer {
         LOGGER.info("[Calculatortropi] Mod chargé avec succès !");
         SpreadDatabase.charger();
         CalcHud.enregistrer();
-        SwitchTooltip.enregistrer();
+        BattleScreenOverlay.enregistrer();
         ClientCommandRegistrationCallback.EVENT.register(
                 (dispatcher, registryAccess) -> {
                     CalcTestCommand.register(dispatcher);
