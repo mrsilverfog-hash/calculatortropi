@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.tropimon.calculatortropi.command.CalcDebugCommand;
 import net.tropimon.calculatortropi.command.CalcMoveCommand;
 import net.tropimon.calculatortropi.command.CalcOpponentCommand;
+import net.tropimon.calculatortropi.command.CalcScreenCommand;
 import net.tropimon.calculatortropi.command.CalcSpreadCommand;
 import net.tropimon.calculatortropi.command.CalcTeamCommand;
 import net.tropimon.calculatortropi.command.CalcTestCommand;
@@ -32,6 +33,7 @@ public class CalculatortropiClient implements ClientModInitializer {
                     CalcSpreadCommand.register(dispatcher);
                     CalcMoveCommand.register(dispatcher);
                     CalcDebugCommand.register(dispatcher);
+                    CalcScreenCommand.register(dispatcher);
                 }
         );
     }
