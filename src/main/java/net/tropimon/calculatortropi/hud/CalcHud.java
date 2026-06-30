@@ -9,6 +9,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
 import net.tropimon.calculatortropi.calc.TypeChart;
 import net.tropimon.calculatortropi.cobblemon.TypeMapper;
+import net.tropimon.calculatortropi.database.SpreadEntry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,6 +105,7 @@ public class CalcHud {
         }
 
         rangs.add(new RangTexte("Objet: " + ctx.spread.objet + " | Talent: " + ctx.spread.talent, 0xFFAAAAAA));
+        rangs.add(new RangTexte(formaterSpreadEv(ctx.spread), 0xFFAAAAAA));
         rangs.add(new RangEspace());
 
         rangs.add(new RangTexte("Vos capacités -> adversaire", 0xFF55FFFF));
@@ -124,6 +126,19 @@ public class CalcHud {
         }
 
         return rangs;
+    }
+
+    private static String formaterSpreadEv(SpreadEntry spread) {
+        StringBuilder sb = new StringBuilder("Nature: ").append(spread.nature).append(" | EV ");
+        List<String> parties = new ArrayList<>();
+        if (spread.evPv > 0) parties.add(spread.evPv + " PV");
+        if (spread.evAtk > 0) parties.add(spread.evAtk + " Atk");
+        if (spread.evDef > 0) parties.add(spread.evDef + " Def");
+        if (spread.evSpa > 0) parties.add(spread.evSpa + " SpA");
+        if (spread.evSpd > 0) parties.add(spread.evSpd + " SpD");
+        if (spread.evSpe > 0) parties.add(spread.evSpe + " Spe");
+        sb.append(String.join(" / ", parties));
+        return sb.toString();
     }
 
     private static int couleurBarreVie(double ratio) {
