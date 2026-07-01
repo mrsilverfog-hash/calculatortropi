@@ -107,7 +107,8 @@ public class OpponentContext {
                     if (bp == null) continue;
                     if (acteur.getUuid().equals(monUuidJoueur)) {
                         monActif = bp;
-                    } else if (actifAdverse == null) {
+                    } else if (actifAdverse == null
+                               && acteur.getType().toString().equals("PLAYER")) {
                         actifAdverse = bp;
                     }
                 }
