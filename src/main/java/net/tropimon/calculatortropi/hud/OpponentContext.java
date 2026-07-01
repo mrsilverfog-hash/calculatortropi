@@ -19,11 +19,6 @@ import net.tropimon.calculatortropi.database.SpreadEntry;
 
 import java.util.UUID;
 
-/**
- * Centralise la détection de l'adversaire actif (espèce, spread, stats
- * calculées) ET l'UUID de notre propre Pokémon actif, pour que le panneau
- * principal et l'infobulle de switch utilisent exactement la même logique.
- */
 public class OpponentContext {
 
     public final UUID monUuidActif;
@@ -36,9 +31,10 @@ public class OpponentContext {
     public final float pvMaxReel;
     public final double ratioPv;
 
-    public final SpreadEntry spread; // peut être null
+    public final SpreadEntry spread;
     public final boolean spreadEnChargement;
 
+    // Stats BRUTES depuis l'API (utilisées par InferenceTracker pour calculer les ratios)
     public final int atk, def, spa, spd;
 
     private OpponentContext(
@@ -69,7 +65,30 @@ public class OpponentContext {
         return (int) pvMaxReel;
     }
 
-    /** Renvoie null si pas en combat exploitable. */
+    /**
+     * Stat d'attaque physique CORRIGÉE par InferenceTracker
+     * (= atk brut × multiplicateur déduit des coups observés).
+     */
+    public int atkEff() {
+        return (int) (atk * InferenceTracker.getMultiplicateurAtk());
+    }
+
+    /**
+     * Stat d'attaque spéciale CORRIGÉE par InferenceTracker.
+     */
+    public int spaEff() {
+        return (int) (spa * InferenceTracker.getMultiplicateurSpa());
+    }
+
+    /**
+     * Objet effectif : utilise l'objet inféré depuis le combat si disponible,
+     * sinon revient à celui de l'API.
+     */
+    public String getObjetEffectif() {
+        if (InferenceTracker.objetInfere != null) return InferenceTracker.objetInfere;
+        return spread != null ? spread.objet : null;
+    }
+
     public static OpponentContext detecter() {
         ClientBattle combat = CobblemonClient.INSTANCE.getBattle();
         if (combat == null) return null;
@@ -78,9 +97,6 @@ public class OpponentContext {
         if (client.player == null) return null;
         UUID monUuidJoueur = client.player.getUuid();
 
-        // Détection par UUID d'ACTEUR (le joueur), confirmée fiable en duel
-        // classique ET en classé via /calcdebug — pas besoin de comparer
-        // par UUID de Pokémon, qui s'est révélé moins fiable.
         ClientBattlePokemon monActif = null;
         ClientBattlePokemon actifAdverse = null;
 
@@ -113,9 +129,7 @@ public class OpponentContext {
                 ? TypeMapper.depuisCobblemon(espece.getSecondaryType()) : null;
 
         SpreadEntry spread = RankedApiClient.obtenirSiDisponible(espece.getName());
-        if (spread == null) {
-            spread = SpreadDatabase.trouver(espece.getName());
-        }
+        if (spread == null) spread = SpreadDatabase.trouver(espece.getName());
         boolean enChargement = spread == null && RankedApiClient.estEnCoursDeChargement(espece.getName());
 
         int atk = 0, def = 0, spa = 0, spd = 0;
@@ -131,8 +145,8 @@ public class OpponentContext {
         }
 
         return new OpponentContext(
-                monActif.getUuid(), actifAdverse, espece, niveau, type1, type2, pvExacts, pvMaxReel, ratioPv,
-                spread, enChargement, atk, def, spa, spd
+                monActif.getUuid(), actifAdverse, espece, niveau, type1, type2,
+                pvExacts, pvMaxReel, ratioPv, spread, enChargement, atk, def, spa, spd
         );
     }
 }
