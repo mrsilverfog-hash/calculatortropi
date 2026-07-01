@@ -36,9 +36,6 @@ public class CalcHud {
 
     private static void dessinerViaHud(DrawContext contexte, RenderTickCounter compteur) {
         MinecraftClient client = MinecraftClient.getInstance();
-        // Quand l'écran de combat (menu Combat/Equipe) est ouvert, c'est
-        // BattleScreenOverlay qui dessine le panneau APRES cet écran, pour
-        // ne pas être recouvert par ses propres éléments (cases d'équipe...).
         if (client.currentScreen instanceof BattleGUI) return;
         dessiner(contexte, client);
     }
@@ -47,10 +44,17 @@ public class CalcHud {
         if (client.player == null) return;
 
         OpponentContext ctx = OpponentContext.detecter();
-        if (ctx == null) return;
+        if (ctx == null) {
+            InferenceTracker.reset();
+            return;
+        }
 
         Pokemon monPokemonComplet = trouverMonActif(ctx);
         if (monPokemonComplet == null) return;
+
+        // Mettre à jour l'inférence AVANT de construire les rangs,
+        // pour que les corrections soient visibles dès cette frame.
+        InferenceTracker.mettreAJour(monPokemonComplet, ctx);
 
         List<Rang> rangs = construireRangs(ctx, monPokemonComplet);
         dessinerPanneau(contexte, client, rangs);
@@ -58,9 +62,7 @@ public class CalcHud {
 
     private static Pokemon trouverMonActif(OpponentContext ctx) {
         for (Pokemon p : CobblemonClient.INSTANCE.getStorage().getParty()) {
-            if (p != null && p.getUuid().equals(ctx.monUuidActif)) {
-                return p;
-            }
+            if (p != null && p.getUuid().equals(ctx.monUuidActif)) return p;
         }
         return null;
     }
@@ -104,8 +106,18 @@ public class CalcHud {
             return rangs;
         }
 
-        rangs.add(new RangTexte("Objet: " + ctx.spread.objet + " | Talent: " + ctx.spread.talent, 0xFFAAAAAA));
+        // Objet : priorité à l'objet inféré depuis le combat
+        String objetAffiche = ctx.getObjetEffectif();
+        rangs.add(new RangTexte("Objet: " + objetAffiche + " | Talent: " + ctx.spread.talent, 0xFFAAAAAA));
         rangs.add(new RangTexte(formaterSpreadEv(ctx.spread), 0xFFAAAAAA));
+
+        // Indicateur de correction si l'inférence a des données
+        if (InferenceTracker.aDesCorrections()) {
+            int n = InferenceTracker.getNbObservations();
+            String texteCorr = "* Corrigé depuis " + n + " coup" + (n > 1 ? "s" : "") + " observé" + (n > 1 ? "s" : "");
+            rangs.add(new RangTexte(texteCorr, 0xFFFFAA00));
+        }
+
         rangs.add(new RangEspace());
 
         rangs.add(new RangTexte("Vos capacités -> adversaire", 0xFF55FFFF));
@@ -118,8 +130,9 @@ public class CalcHud {
 
         rangs.add(new RangEspace());
         rangs.add(new RangTexte("Attaques probables adverses -> vous", 0xFF55FFFF));
+        // On utilise atkEff()/spaEff() : stats corrigées par l'inférence
         for (Matchup.Ligne ligne : Matchup.depuisAdversaire(
-                ctx.spread.topMoves, ctx.atk, ctx.spa, ctx.niveau, ctx.type1, ctx.type2,
+                ctx.spread.topMoves, ctx.atkEff(), ctx.spaEff(), ctx.niveau, ctx.type1, ctx.type2,
                 monPokemonComplet, typeNous1, typeNous2
         )) {
             rangs.add(new RangMove(ligne.type(), ligne.nom(), ligne.resultat(), ligne.couleurResultat()));
@@ -137,7 +150,8 @@ public class CalcHud {
         if (spread.evSpa > 0) parties.add(spread.evSpa + " SpA");
         if (spread.evSpd > 0) parties.add(spread.evSpd + " SpD");
         if (spread.evSpe > 0) parties.add(spread.evSpe + " Spe");
-        sb.append(String.join(" / ", parties));
+        if (parties.isEmpty()) sb.append("inconnus");
+        else sb.append(String.join(" / ", parties));
         return sb.toString();
     }
 
