@@ -19,7 +19,6 @@ public class SwitchTooltip {
     private static final int LARGEUR_PANNEAU = 220;
     private static final int MARGE = 50;
 
-    // Taille réelle d'une case affichée (constantes Cobblemon: SELECT_WIDTH * SCALE)
     private static final float LARGEUR_CASE = 94f * 0.5f;
 
     public static void dessiner(DrawContext contexte, MinecraftClient client, BattleGUI battleGUI) {
@@ -30,9 +29,6 @@ public class SwitchTooltip {
             List<BattleSwitchPokemonSelection.SwitchTile> tuiles = switchSelection.getTiles();
             if (tuiles.isEmpty()) return;
 
-            // On calcule la position réelle du groupe de cases visibles
-            // (et non celle du conteneur invisible, qui couvre tout l'écran),
-            // pour ancrer notre panneau juste à droite, une fois pour toutes.
             float xDroite = Float.MIN_VALUE;
             float yHaut = Float.MAX_VALUE;
             for (BattleSwitchPokemonSelection.SwitchTile tuile : tuiles) {
@@ -44,6 +40,7 @@ public class SwitchTooltip {
             int yPanneau = (int) yHaut;
 
             OpponentContext ctx = OpponentContext.detecter();
+            if (ctx == null || ctx.spread == null) return;
 
             double sourisX = client.mouse.getX() * client.getWindow().getScaledWidth() / client.getWindow().getWidth();
             double sourisY = client.mouse.getY() * client.getWindow().getScaledHeight() / client.getWindow().getHeight();
@@ -55,8 +52,6 @@ public class SwitchTooltip {
                     break;
                 }
             }
-
-            if (ctx == null || ctx.spread == null) return;
 
             if (survole != null) {
                 dessinerMatchup(contexte, client, survole, ctx, xPanneau, yPanneau);
@@ -77,11 +72,12 @@ public class SwitchTooltip {
         TypeChart.Type typeP2 = candidat.getSecondaryType() != null
                 ? TypeMapper.depuisCobblemon(candidat.getSecondaryType()) : null;
 
+        // Utiliser atkEff()/spaEff() : stats corrigées par l'inférence
         List<Matchup.Ligne> versAdversaire = Matchup.versCible(
                 candidat, typeP1, typeP2, ctx.def, ctx.spd, ctx.getPvMaxPourCalcul(), ctx.type1, ctx.type2
         );
         List<Matchup.Ligne> depuisAdversaire = Matchup.depuisAdversaire(
-                ctx.spread.topMoves, ctx.atk, ctx.spa, ctx.niveau, ctx.type1, ctx.type2,
+                ctx.spread.topMoves, ctx.atkEff(), ctx.spaEff(), ctx.niveau, ctx.type1, ctx.type2,
                 candidat, typeP1, typeP2
         );
 
@@ -111,6 +107,12 @@ public class SwitchTooltip {
             texte.add(l.nom() + "  " + l.resultat());
             couleur.add(l.couleurResultat());
             typeLigne.add(l.type());
+        }
+
+        if (InferenceTracker.aDesCorrections()) {
+            texte.add("* Stats corrigées (" + InferenceTracker.getNbObservations() + " obs)");
+            couleur.add(0xFFFFAA00);
+            typeLigne.add(null);
         }
 
         int largeurMax = 0;
